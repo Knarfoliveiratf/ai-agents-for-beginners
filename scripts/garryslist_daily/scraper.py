@@ -218,28 +218,41 @@ def send_email(subject: str, plain: str, html: str) -> None:
 
 
 def main() -> int:
+    latest_only = os.environ.get("LATEST_ONLY", "").lower() in {"1", "true", "yes"}
+
     print(f"Fetching {LIST_URL} ...", file=sys.stderr)
     html = fetch_html(LIST_URL)
     posts = parse_posts(html)
     print(f"Parsed {len(posts)} posts", file=sys.stderr)
 
-    seen = load_seen()
-    new_posts = [p for p in posts if p.id not in seen]
-    print(f"{len(new_posts)} new posts since last run", file=sys.stderr)
+    if not posts:
+        print("No posts found on page; nothing to send.", file=sys.stderr)
+        return 0
 
-    if not new_posts:
-        if posts:
-            save_seen(seen | {p.id for p in posts})
+    if latest_only:
+        target_posts = posts[:1]
+        print("LATEST_ONLY=1: sending only the most recent post.", file=sys.stderr)
+    else:
+        seen = load_seen()
+        target_posts = [p for p in posts if p.id not in seen]
+        print(f"{len(target_posts)} new posts since last run", file=sys.stderr)
+
+    if not target_posts:
+        save_seen(load_seen() | {p.id for p in posts})
         print("No new posts; skipping email.", file=sys.stderr)
         return 0
 
-    translated = translate_posts(new_posts)
+    translated = translate_posts(target_posts)
     plain, html_body = render_email(translated)
-    subject = f"Garry's List — {len(new_posts)} nova(s) publicação(ões)"
+    if latest_only:
+        subject = f"Garry's List — última publicação: {translated[0]['title_pt'][:80]}"
+    else:
+        subject = f"Garry's List — {len(target_posts)} nova(s) publicação(ões)"
     send_email(subject, plain, html_body)
     print(f"Email enviado para {os.environ.get('EMAIL_TO')}", file=sys.stderr)
 
-    save_seen(seen | {p.id for p in posts})
+    if not latest_only:
+        save_seen(load_seen() | {p.id for p in posts})
     return 0
 
 

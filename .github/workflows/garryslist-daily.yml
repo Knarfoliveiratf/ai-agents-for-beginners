@@ -5,6 +5,11 @@ on:
     # 07:00 America/Sao_Paulo == 10:00 UTC
     - cron: "0 10 * * *"
   workflow_dispatch:
+    inputs:
+      latest_only:
+        description: "Enviar apenas a última postagem (ignora estado)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -48,4 +53,5 @@ jobs:
           EMAIL_TO: knarfoliveiratf@gmail.com
           GARRYSLIST_STATE_FILE: scripts/garryslist_daily/state/seen.json
           TARGET_LANG: pt
+          LATEST_ONLY: ${{ inputs.latest_only && '1' || '' }}
         run: python scripts/garryslist_daily/scraper.py
