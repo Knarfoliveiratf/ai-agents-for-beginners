@@ -1,0 +1,51 @@
+name: Garry's List Daily Digest
+
+on:
+  schedule:
+    # 07:00 America/Sao_Paulo == 10:00 UTC
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: garryslist-daily
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore state cache
+        uses: actions/cache@v4
+        with:
+          path: scripts/garryslist_daily/state
+          key: garryslist-state-${{ github.run_id }}
+          restore-keys: |
+            garryslist-state-
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: scripts/garryslist_daily/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r scripts/garryslist_daily/requirements.txt
+
+      - name: Run scraper
+        env:
+          SMTP_HOST: smtp.gmail.com
+          SMTP_PORT: "587"
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: knarfoliveiratf@gmail.com
+          GARRYSLIST_STATE_FILE: scripts/garryslist_daily/state/seen.json
+          TARGET_LANG: pt
+        run: python scripts/garryslist_daily/scraper.py
